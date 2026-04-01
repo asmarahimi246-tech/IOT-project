@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Leihothek</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;}
+body{
+    font-family: 'Inter', sans-serif;
+    margin:0;
+    background:#f6f7f9;
+    color:#1a1a1a;
+}
+
+/* NAVBAR */
+.navbar{
+    background:#0a2342;
+    color:white;
+    position:sticky;
+    top:0;
+    width:100%;
+    z-index:999;
+    box-shadow:0 2px 8px rgba(0,0,0,0.15);
+}
+.nav-container{
+    max-width:1200px;
+    margin:auto;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 20px;
+}
+.nav-logo{
+    font-size:22px;
+    font-weight:700;
+    cursor:pointer;
+}
+.nav-menu{
+    display:flex;
+    gap:20px;
+}
+.nav-menu a{
+    color:white;
+    text-decoration:none;
+    font-size:15px;
+    font-weight:500;
+    transition:0.2s;
+}
+.nav-menu a:hover{color:#00A676;}
+.nav-menu .btn-nav{
+    background:#00A676;
+    padding:6px 12px;
+    border-radius:6px;
+    font-weight:600;
+}
+
+/* HAMBURGER */
+.hamburger{
+    display:none;
+    font-size:24px;
+    cursor:pointer;
+}
+
+/* CONTAINER */
+.container{
+    max-width:1100px;
+    margin:auto;
+    padding:25px;
+}
+
+/* FILTERS */
+.filters{
+    display:flex;
+    gap:10px;
+    margin-bottom:25px;
+    flex-wrap:wrap;
+}
+.filters input{
+    flex:1;
+    min-width:140px;
+    padding:10px;
+    border-radius:8px;
+    border:1px solid #ddd;
+    background:white;
+    font-size:14px;
+}
+.filters button{
+    padding:10px 16px;
+    border-radius:8px;
+    border:none;
+    background:#0072CE;
+    color:white;
+    font-weight:600;
+    cursor:pointer;
+    transition:0.2s;
+}
+.filters button:hover{background:#005bb5;}
+
+/* GRID */
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+    gap:20px;
+}
+
+/* CARD */
+.card{
+    background:white;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 6px 18px rgba(0,0,0,0.06);
+    transition:0.25s ease;
+    cursor:pointer;
+}
+.card:hover{
+    transform:translateY(-6px);
+    box-shadow:0 10px 24px rgba(0,0,0,0.1);
+}
+.card img{
+    width:100%;
+    height:130px;
+    object-fit:cover;
+    transition:0.3s;
+}
+.card:hover img{
+    transform:scale(1.05);
+}
+.card-content{
+    padding:12px;
+}
+.card-title{
+    font-size:16px;
+    font-weight:600;
+    margin:6px 0;
+}
+.card-desc{
+    font-size:13px;
+    color:#666;
+    margin-bottom:8px;
+    line-height:1.3;
+}
+.card-price{
+    font-size:15px;
+    font-weight:600;
+    color:#0072CE;
+    margin-bottom:10px;
+}
+.btn-reserve{
+    background:#00A676;
+    color:white;
+    padding:8px;
+    text-align:center;
+    border-radius:8px;
+    font-size:14px;
+    font-weight:600;
+    transition:0.2s;
+}
+.btn-reserve:hover{background:#008a5b;}
+
+/* STATUS BADGE */
+.status-label{
+    display:inline-block;
+    padding:4px 8px;
+    margin-bottom:6px;
+    font-size:12px;
+    font-weight:600;
+    border-radius:6px;
+    color:white;
+}
+.status-available{background:#00A676;}
+.status-unavailable{background:#FF4C4C;}
+.status-scanned{
+    border:2px dashed #FFD700;
+    color:#FFD700;
+    background:transparent;
+    margin-top:4px;
+    font-size:11px;
+    padding:2px 6px;
+}
+
+/* MOBILE */
+@media(max-width:768px){
+    .nav-menu{
+        display:none;
+        flex-direction:column;
+        background:#0a2342;
+        width:100%;
+        padding:10px 0;
+    }
+    .nav-menu.open{display:flex;}
+    .hamburger{display:block;}
+}
+@media(max-width:600px){
+    .container{padding:15px;}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));}
+    .card img{height:110px;}
+}
+</style>
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<header class="navbar">
+    <div class="nav-container">
+        <div class="nav-logo" onclick="window.location.href='/'">📦 Leihothek</div>
+        <nav class="nav-menu">
+            <a href="/">Home</a>
+            <a href="#items">Items</a>
+            <a href="#about">About</a>
+            <a href="#contact">Contact</a>
+            <a href="/checkout" class="btn-nav">Checkout</a>
+        </nav>
+        <div class="hamburger" onclick="toggleMenu()">☰</div>
+    </div>
+</header>
+
+<div class="container">
+    <!-- FILTERS -->
+    <div class="filters">
+        <input type="date" id="start" placeholder="Start Date">
+        <input type="date" id="end" placeholder="End Date">
+        <button onclick="checkAvailability()">Check Availability</button>
+    </div>
+
+    <!-- ITEM GRID -->
+    <div id="items" class="grid">
+        {% for item in items %}
+        <div class="card" id="item-{{item.id}}">
+            <img src="{{ item.image }}" alt="{{ item.name }}">
+            <div class="card-content">
+                <h3 class="card-title">{{ item.name }}</h3>
+                <p class="card-desc">{{ item.description }}</p>
+                <p class="card-price">€{{ item.price_per_day }} / day</p>
+                <span class="status-label" id="status-{{item.id}}"></span>
+                <div class="btn-reserve" onclick="openDetail({{item.id}})">View & Reserve</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function toggleMenu(){
+    document.querySelector('.nav-menu').classList.toggle('open');
+}
+function openDetail(id){
+    window.location.href="/item/" + id;
+}
+async function checkAvailability(){
+    const start = document.getElementById("start").value;
+    const end = document.getElementById("end").value;
+    if(!start || !end){ alert("Select both dates"); return; }
+
+    const res = await fetch(`/check?start=${start}&end=${end}`);
+    const data = await res.json();
+
+    data.forEach(item => {
+        const label = document.getElementById("status-" + item.id);
+        label.classList.add("status-scanned");
+        if(item.available){
+            label.textContent = "Available";
+            label.classList.add("status-available");
+        } else{
+            label.textContent = "Unavailable";
+            label.classList.add("status-unavailable");
+        }
+    });
+}
+</script>
+
+</body>
+</html>
