@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NFC Items</title>
+</head>
+<body>
+    <h1>NFC Item Status</h1>
+
+    {% for item in nfc_items %}
+        <p>
+            Item: {{ item.item_name }} |
+            UID: {{ item.uid }} |
+            Status: {{ item.status }}
+        </p>
+    {% endfor %}
+</body>
+</html>

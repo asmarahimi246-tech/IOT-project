@@ -15,6 +15,7 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+
 def init_db():
     conn = get_db()
     cur = conn.cursor()
@@ -31,8 +32,40 @@ def init_db():
     )
     """)
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS items_nfc (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id INTEGER,
+        uid TEXT UNIQUE,
+        status TEXT DEFAULT 'available'
+    )
+    """)
+
+    # Voeg testdata toe als tabel nog leeg is
+    cur.execute("SELECT COUNT(*) AS count FROM items_nfc")
+    count = cur.fetchone()["count"]
+
+    if count == 0:
+        cur.execute(
+            "INSERT INTO items_nfc (item_id, uid, status) VALUES (?, ?, ?)",
+            (1, "04A3BC129F", "available")
+        )
+        cur.execute(
+            "INSERT INTO items_nfc (item_id, uid, status) VALUES (?, ?, ?)",
+            (2, "123456ABCD", "available")
+        )
+        cur.execute(
+            "INSERT INTO items_nfc (item_id, uid, status) VALUES (?, ?, ?)",
+            (3, "A1B2C3D4E5", "available")
+        )
+        cur.execute(
+            "INSERT INTO items_nfc (item_id, uid, status) VALUES (?, ?, ?)",
+            (4, "FFEEDD1122", "available")
+        )
+
     conn.commit()
     conn.close()
+
 
 init_db()
 
@@ -45,7 +78,7 @@ users = {
 }
 
 # ------------------------------
-# ITEMS (MET ECHTE FOTO'S)
+# ITEMS
 # ------------------------------
 items = [
     {"id": 1, "name": "Drill", "description": "Powerful drill", "price_per_day": 10, "image": "images/drill.jpg"},
@@ -71,12 +104,20 @@ def is_available(item_id, start, end):
         existing_end = datetime.fromisoformat(r["end"])
 
         if not (end <= existing_start or start >= existing_end):
+            conn.close()
             return False
 
+    conn.close()
     return True
+
 
 def generate_rfid():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+
+def get_item_name(item_id):
+    item = next((i for i in items if i["id"] == item_id), None)
+    return item["name"] if item else "Unknown item"
 
 # ------------------------------
 # AUTH
@@ -97,6 +138,7 @@ def login():
 
     return render_template("login.html")
 
+
 @app.route("/logout")
 def logout():
     session.pop("user", None)
@@ -111,6 +153,7 @@ def index():
         return redirect(url_for("login"))
     return render_template("index.html", items=items)
 
+
 @app.route("/dashboard")
 def dashboard():
     if "user" not in session:
@@ -121,16 +164,20 @@ def dashboard():
 
     cur.execute("SELECT * FROM reservations WHERE user = ?", (session["user"],))
     reservations = cur.fetchall()
+    conn.close()
 
     return render_template("dashboard.html", reservations=reservations)
+
 
 @app.route("/about")
 def about():
     return render_template("about.html")
 
+
 @app.route("/contact")
 def contact():
     return render_template("contact.html")
+
 
 @app.route("/item/<int:item_id>")
 def item_detail(item_id):
@@ -140,17 +187,50 @@ def item_detail(item_id):
     item = next((i for i in items if i["id"] == item_id), None)
 
     if not item:
-        return "Item not found"
+        return "Item not found", 404
 
     return render_template("item_detail.html", item=item)
+
+
+@app.route("/nfc_items")
+def nfc_items():
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM items_nfc")
+    rows = cur.fetchall()
+    conn.close()
+
+    nfc_items_data = []
+    for row in rows:
+        nfc_items_data.append({
+            "id": row["id"],
+            "item_id": row["item_id"],
+            "item_name": get_item_name(row["item_id"]),
+            "uid": row["uid"],
+            "status": row["status"]
+        })
+
+    return render_template("nfc_items.html", nfc_items=nfc_items_data)
 
 # ------------------------------
 # API
 # ------------------------------
 @app.route("/check")
 def check():
-    start = datetime.fromisoformat(request.args.get("start"))
-    end = datetime.fromisoformat(request.args.get("end"))
+    start_str = request.args.get("start")
+    end_str = request.args.get("end")
+
+    if not start_str or not end_str:
+        return jsonify({"error": "Start and end are required"}), 400
+
+    try:
+        start = datetime.fromisoformat(start_str)
+        end = datetime.fromisoformat(end_str)
+    except ValueError:
+        return jsonify({"error": "Invalid datetime format"}), 400
 
     result = []
 
@@ -162,17 +242,31 @@ def check():
 
     return jsonify(result)
 
+
 @app.route("/reserve", methods=["POST"])
 def reserve():
     if "user" not in session:
         return jsonify({"error": "Not logged in"}), 401
 
-    data = request.json
-    item_id = data["item_id"]
-    start = data["start"]
-    end = data["end"]
+    data = request.get_json()
 
-    if not is_available(item_id, datetime.fromisoformat(start), datetime.fromisoformat(end)):
+    if not data:
+        return jsonify({"error": "Missing JSON body"}), 400
+
+    item_id = data.get("item_id")
+    start = data.get("start")
+    end = data.get("end")
+
+    if not item_id or not start or not end:
+        return jsonify({"error": "item_id, start and end are required"}), 400
+
+    try:
+        start_dt = datetime.fromisoformat(start)
+        end_dt = datetime.fromisoformat(end)
+    except ValueError:
+        return jsonify({"error": "Invalid datetime format"}), 400
+
+    if not is_available(item_id, start_dt, end_dt):
         return jsonify({"error": "Item not available"}), 400
 
     locker = random.choice(lockers)
@@ -193,6 +287,53 @@ def reserve():
         "message": "Reserved successfully",
         "locker": locker,
         "rfid": rfid
+    })
+
+
+@app.route("/scan_nfc", methods=["POST"])
+def scan_nfc():
+    data = request.get_json()
+
+    if not data or "uid" not in data:
+        return jsonify({"error": "UID missing"}), 400
+
+    uid = str(data["uid"]).strip()
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM items_nfc WHERE uid = ?", (uid,))
+    item = cur.fetchone()
+
+    if not item:
+        conn.close()
+        return jsonify({"error": "Unknown UID"}), 404
+
+    current_status = item["status"]
+
+    if current_status in ["available", "returned"]:
+        new_status = "on loan"
+    else:
+        new_status = "returned"
+
+    cur.execute(
+        "UPDATE items_nfc SET status = ? WHERE uid = ?",
+        (new_status, uid)
+    )
+
+    conn.commit()
+
+    item_name = get_item_name(item["item_id"])
+
+    conn.close()
+
+    return jsonify({
+        "message": "Status updated",
+        "uid": uid,
+        "item_id": item["item_id"],
+        "item_name": item_name,
+        "old_status": current_status,
+        "new_status": new_status
     })
 
 # ------------------------------
