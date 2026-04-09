@@ -3,42 +3,253 @@
 <head>
 <meta charset="UTF-8">
 <title>Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
-body { font-family: sans-serif; background: #f5f7fb; padding: 30px; }
-h1 { margin-bottom: 20px; }
-.table { width: 100%; border-collapse: collapse; }
-.table th, .table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-.table th { background: #0072CE; color: white; }
-.card { margin-bottom: 20px; background:white; padding:16px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.08); }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg:      #f0f2f7;
+    --surface: #ffffff;
+    --navy:    #0a2342;
+    --blue:    #0072CE;
+    --green:   #00A676;
+    --amber:   #f59e0b;
+    --red:     #ef4444;
+    --text:    #1a1a2e;
+    --muted:   #6b7280;
+    --border:  #e5e7eb;
+    --radius:  12px;
+    --shadow:  0 4px 20px rgba(0,0,0,0.07);
+}
+
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+/* NAVBAR */
+.navbar {
+    background: var(--navy);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+.nav-logo { font-size: 20px; font-weight: 700; color: white; text-decoration: none; }
+.nav-links { display: flex; gap: 8px; }
+.nav-links a {
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 8px;
+    transition: 0.2s;
+}
+.nav-links a:hover { color: white; background: rgba(255,255,255,0.1); }
+.nav-links a.active { color: white; background: var(--blue); }
+.nav-links a.logout { color: #f87171; }
+.nav-links a.logout:hover { background: rgba(248,113,113,0.15); }
+
+/* PAGE */
+.page { max-width: 1200px; margin: 0 auto; padding: 36px 24px; }
+.page-header { margin-bottom: 28px; }
+.page-header h1 { font-size: 26px; font-weight: 700; }
+.page-header p { color: var(--muted); margin-top: 4px; font-size: 14px; }
+
+/* STATS ROW */
+.stats { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+.stat-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 18px 24px;
+    flex: 1;
+    min-width: 140px;
+    box-shadow: var(--shadow);
+    border-top: 3px solid var(--border);
+}
+.stat-card.available { border-top-color: var(--green); }
+.stat-card.reserved  { border-top-color: var(--amber); }
+.stat-card.rented    { border-top-color: var(--blue); }
+.stat-num  { font-size: 32px; font-weight: 700; line-height: 1; }
+.stat-label{ font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* TABLE CARD */
+.table-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+.table-card-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    font-size: 15px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+thead th {
+    background: #f8fafc;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 12px 20px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+tbody td {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #f8fafc; }
+
+/* BADGE */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+.badge-available { background: #d1fae5; color: #065f46; }
+.badge-reserved  { background: #fef3c7; color: #92400e; }
+.badge-rented    { background: #dbeafe; color: #1e40af; }
+
+.user-cell { display: flex; flex-direction: column; }
+.user-name  { font-weight: 600; }
+.user-email { font-size: 12px; color: var(--muted); }
+
+.rfid-chip {
+    font-family: monospace;
+    font-size: 12px;
+    background: #f1f5f9;
+    padding: 3px 8px;
+    border-radius: 6px;
+    color: #475569;
+}
+
+.empty-row td {
+    text-align: center;
+    padding: 48px;
+    color: var(--muted);
+    font-size: 14px;
+}
 </style>
 </head>
 <body>
-<h1>Admin Dashboard</h1>
-<a href="/logout">Logout</a>
 
-<table class="table">
-    <tr>
-        <th>User</th>
-        <th>Item</th>
-        <th>Start Date</th>
-        <th>End Date</th>
-        <th>Locker</th>
-        <th>RFID</th>
-    </tr>
-    {% for r in reservations %}
-    <tr>
-        <td>{{ users[r.user].name }} ({{ r.user }})</td>
-        <td>{{ items[r.item_id-1].name }}</td>
-        <td>{{ r.start }}</td>
-        <td>{{ r.end }}</td>
-        <td>{{ r.locker }}</td>
-        <td>{{ r.rfid }}</td>
-    </tr>
-    {% else %}
-    <tr>
-        <td colspan="6">No reservations yet.</td>
-    </tr>
-    {% endfor %}
-</table>
+<nav class="navbar">
+    <a class="nav-logo" href="/">📦 Leihothek</a>
+    <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/dashboard">My Rentals</a>
+        <a href="/admin" class="active">Admin</a>
+        <a href="/logout" class="logout">Logout</a>
+    </div>
+</nav>
+
+<div class="page">
+    <div class="page-header">
+        <h1>Admin Dashboard</h1>
+        <p>Overview of all reservations and item statuses</p>
+    </div>
+
+    <!-- STATS -->
+    {% set available_count = items | length - reservations | selectattr("status", "in", ["reserved", "rented"]) | list | length %}
+    {% set reserved_count  = reservations | selectattr("status", "equalto", "reserved") | list | length %}
+    {% set rented_count    = reservations | selectattr("status", "equalto", "rented")   | list | length %}
+
+    <div class="stats">
+        <div class="stat-card available">
+            <div class="stat-num">{{ available_count }}</div>
+            <div class="stat-label">Available</div>
+        </div>
+        <div class="stat-card reserved">
+            <div class="stat-num">{{ reserved_count }}</div>
+            <div class="stat-label">Ready for Pickup</div>
+        </div>
+        <div class="stat-card rented">
+            <div class="stat-num">{{ rented_count }}</div>
+            <div class="stat-label">Currently Rented</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-num">{{ reservations | length }}</div>
+            <div class="stat-label">Total Reservations</div>
+        </div>
+    </div>
+
+    <!-- RESERVATIONS TABLE -->
+    <div class="table-card">
+        <div class="table-card-header">All Reservations</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Item</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Locker</th>
+                    <th>RFID</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in reservations %}
+                <tr>
+                    <td>
+                        <div class="user-cell">
+                            <span class="user-name">{{ users[r.user].name }}</span>
+                            <span class="user-email">{{ r.user }}</span>
+                        </div>
+                    </td>
+                    <td>{{ items[r.item_id - 1].name }}</td>
+                    <td>{{ r.start }}</td>
+                    <td>{{ r.end }}</td>
+                    <td>{{ r.locker }}</td>
+                    <td>
+                        {% if r.rfid %}
+                            <span class="rfid-chip">{{ r.rfid }}</span>
+                        {% else %}
+                            <span style="color:var(--muted)">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.status == "reserved" %}
+                            <span class="badge badge-reserved">⏳ Ready for pickup</span>
+                        {% elif r.status == "rented" %}
+                            <span class="badge badge-rented">📦 Rented</span>
+                        {% else %}
+                            <span class="badge badge-available">✓ Available</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr class="empty-row">
+                    <td colspan="7">No reservations yet.</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
 </body>
 </html>

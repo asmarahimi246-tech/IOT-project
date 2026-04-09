@@ -1,12 +1,252 @@
-<h1>Your Reservations</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>My Reservations</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-{% for r in reservations %}
-<div>
-    Item ID: {{r.item_id}} <br>
-    From: {{r.start}} <br>
-    To: {{r.end}} <br>
-    Locker: {{r.locker}} <br>
-    RFID: {{r.rfid}}
+:root {
+    --bg:        #f0f2f7;
+    --surface:   #ffffff;
+    --navy:      #0a2342;
+    --blue:      #0072CE;
+    --green:     #00A676;
+    --amber:     #f59e0b;
+    --red:       #ef4444;
+    --text:      #1a1a2e;
+    --muted:     #6b7280;
+    --border:    #e5e7eb;
+    --radius:    12px;
+    --shadow:    0 4px 20px rgba(0,0,0,0.07);
+}
+
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+/* NAVBAR */
+.navbar {
+    background: var(--navy);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+.nav-logo {
+    font-size: 20px;
+    font-weight: 700;
+    color: white;
+    text-decoration: none;
+}
+.nav-links { display: flex; gap: 8px; }
+.nav-links a {
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 8px;
+    transition: 0.2s;
+}
+.nav-links a:hover { color: white; background: rgba(255,255,255,0.1); }
+.nav-links a.active { color: white; background: var(--blue); }
+.nav-links a.logout { color: #f87171; }
+.nav-links a.logout:hover { background: rgba(248,113,113,0.15); }
+
+/* PAGE */
+.page { max-width: 1000px; margin: 0 auto; padding: 36px 24px; }
+
+.page-header { margin-bottom: 28px; }
+.page-header h1 { font-size: 26px; font-weight: 700; }
+.page-header p { color: var(--muted); margin-top: 4px; font-size: 14px; }
+
+/* EMPTY STATE */
+.empty {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 60px 24px;
+    text-align: center;
+    box-shadow: var(--shadow);
+}
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.empty p { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+.btn-primary {
+    display: inline-block;
+    background: var(--blue);
+    color: white;
+    padding: 10px 22px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: 0.2s;
+}
+.btn-primary:hover { background: #005bb5; }
+
+/* RESERVATION CARDS */
+.reservations { display: flex; flex-direction: column; gap: 16px; }
+
+.res-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+    border-left: 4px solid var(--border);
+    transition: 0.2s;
+}
+.res-card:hover { box-shadow: 0 6px 28px rgba(0,0,0,0.1); }
+.res-card.status-reserved  { border-left-color: var(--amber); }
+.res-card.status-rented    { border-left-color: var(--blue); }
+.res-card.status-available { border-left-color: var(--green); }
+
+.res-info { display: flex; flex-direction: column; gap: 6px; }
+.res-item-name { font-size: 17px; font-weight: 700; }
+.res-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--muted);
+}
+.res-meta span { display: flex; align-items: center; gap: 4px; }
+
+.res-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+
+/* STATUS BADGE */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+.badge-reserved  { background: #fef3c7; color: #92400e; }
+.badge-rented    { background: #dbeafe; color: #1e40af; }
+.badge-available { background: #d1fae5; color: #065f46; }
+
+/* COLLECT BUTTON */
+.btn-collect {
+    background: var(--green);
+    color: white;
+    border: none;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.btn-collect:hover { background: #008a5b; transform: translateY(-1px); }
+.btn-collect:active { transform: translateY(0); }
+.btn-collect:disabled { background: #9ca3af; cursor: not-allowed; transform: none; }
+
+@media (max-width: 600px) {
+    .res-card { grid-template-columns: 1fr; }
+    .res-actions { align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+    <a class="nav-logo" href="/">📦 Leihothek</a>
+    <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/dashboard" class="active">My Rentals</a>
+        <a href="/logout" class="logout">Logout</a>
+    </div>
+</nav>
+
+<div class="page">
+    <div class="page-header">
+        <h1>My Reservations</h1>
+        <p>Track and manage your current and upcoming rentals</p>
+    </div>
+
+    {% if reservations %}
+    <div class="reservations">
+        {% for r in reservations %}
+        <div class="res-card status-{{ r.status }}" id="card-{{ r.item_id }}">
+            <div class="res-info">
+                <div class="res-item-name">{{ items[r.item_id - 1].name }}</div>
+                <div class="res-meta">
+                    <span>📅 {{ r.start }} – {{ r.end }}</span>
+                    <span>🔒 Locker {{ r.locker }}</span>
+                    {% if r.rfid %}<span>📡 {{ r.rfid }}</span>{% endif %}
+                </div>
+            </div>
+            <div class="res-actions">
+                {% if r.status == "reserved" %}
+                    <span class="badge badge-reserved">⏳ Ready for pickup</span>
+                    <button class="btn-collect" onclick="markCollected({{ r.item_id }}, this)">
+                        ✅ Mark as Collected
+                    </button>
+                {% elif r.status == "rented" %}
+                    <span class="badge badge-rented">📦 Rented</span>
+                {% else %}
+                    <span class="badge badge-available">✓ Returned</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="empty">
+        <div class="empty-icon">📭</div>
+        <h3>No reservations yet</h3>
+        <p>Browse available items and make your first reservation.</p>
+        <a href="/" class="btn-primary">Browse Items</a>
+    </div>
+    {% endif %}
 </div>
-<hr>
-{% endfor %}
+
+<script>
+async function markCollected(itemId, btn) {
+    btn.disabled = true;
+    btn.textContent = "Updating…";
+    try {
+        const res = await fetch(`/api/pickup/${itemId}`, { method: "POST" });
+        const data = await res.json();
+        if (data.error) {
+            alert(data.error);
+            btn.disabled = false;
+            btn.innerHTML = "✅ Mark as Collected";
+            return;
+        }
+        // Update card in place without full reload
+        const card = document.getElementById("card-" + itemId);
+        card.classList.remove("status-reserved");
+        card.classList.add("status-rented");
+        const actions = card.querySelector(".res-actions");
+        actions.innerHTML = '<span class="badge badge-rented">📦 Rented</span>';
+    } catch (e) {
+        alert("Request failed. Please try again.");
+        btn.disabled = false;
+        btn.innerHTML = "✅ Mark as Collected";
+    }
+}
+</script>
+
+</body>
+</html>
