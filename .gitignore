@@ -1,0 +1,17 @@
+# Virtual environment
+.venv/
+
+# Database (lokale data, niet committen)
+mijnproject/data.sqlite
+
+# Python cache
+__pycache__/
+*.pyc
+
+# uv
+.lock
+CACHEDIR.TAG
+pyvenv.cfg
+
+# Environment variables (als je dit later toevoegt)
+.env

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                {% if current_user.is_authenticated %}
+                <h2>Hello {{ current_user.username }}!</h2>
+                <p class="text-muted">You are logged in</p>
+                {% else %}
+                <h2>Welcome</h2>
+                <p>To get started: log in or register!</p>
+                <div class="mt-3">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary me-2">Login</a>
+                    <a href="{{ url_for('register') }}" class="btn btn-secondary">Register</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6">
+        <div class="card text-center">
+            <img src="{{ url_for('static', filename='drill.jpg') }}" class="card-img-top" alt="Drill">
+            <div class="card-body">
+                <h5 class="card-title">Drill</h5>
+                <p class="card-text text-muted">Powerful drill for any project</p>
+                <a href="/item/1" class="btn btn-primary">Reserve</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
