@@ -12,6 +12,10 @@ body{font-family:'Inter';margin:0;background:#f4f6f9;}
 .container{max-width:900px;margin:auto;padding:20px;}
 .card{background:white;padding:15px;border-radius:10px;margin-bottom:15px;box-shadow:0 4px 12px rgba(0,0,0,0.05);}
 .card p{margin:5px 0;}
+.status-badge{display:inline-block;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;}
+.active{background:#fff4e5;color:#b26a00;}
+.returned-early{background:#fdecec;color:#c62828;}
+.returned-on-time{background:#eafaf1;color:#1e8e3e;}
 </style>
 </head>
 <body>
@@ -28,18 +32,31 @@ body{font-family:'Inter';margin:0;background:#f4f6f9;}
 </div>
 
 <div class="container">
-<h1>My Reservations</h1>
-{% for r in reservations %}
-<div class="card">
-  <p><b>Item ID:</b> {{ r.item_id }}</p>
-  <p><b>Start:</b> {{ r.start }}</p>
-  <p><b>End:</b> {{ r.end }}</p>
-  <p><b>Locker:</b> {{ r.locker }}</p>
-  <p><b>RFID:</b> {{ r.rfid }}</p>
-</div>
-{% else %}
-<p>No reservations yet.</p>
-{% endfor %}
+  <h1>My Reservations</h1>
+
+  {% for r in reservations %}
+  <div class="card">
+    <p><b>Item:</b> {{ r.item_name }}</p>
+    <p><b>Start:</b> {{ r.start }}</p>
+    <p><b>End:</b> {{ r.end }}</p>
+    <p><b>Locker:</b> {{ r.locker }}</p>
+    <p><b>RFID:</b> {{ r.rfid }}</p>
+    <p>
+      <b>Status:</b>
+      {% if r.status == "active" %}
+        <span class="status-badge active">active</span>
+      {% elif r.status == "returned early" %}
+        <span class="status-badge returned-early">returned early</span>
+      {% elif r.status == "returned on time" %}
+        <span class="status-badge returned-on-time">returned on time</span>
+      {% else %}
+        {{ r.status }}
+      {% endif %}
+    </p>
+  </div>
+  {% else %}
+  <p>No reservations yet.</p>
+  {% endfor %}
 </div>
 
 </body>

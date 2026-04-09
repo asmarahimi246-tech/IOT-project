@@ -1,17 +1,105 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>NFC Items</title>
+<meta charset="UTF-8">
+<title>Leihothek - NFC Statuses</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Inter';margin:0;background:#f4f6f9;}
+.nav{background:white;padding:15px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 6px rgba(0,0,0,0.05);}
+.nav a{margin-left:15px;text-decoration:none;color:#333;font-weight:500;}
+.nav a:hover{color:#0072CE;}
+.container{max-width:1100px;margin:auto;padding:20px;}
+.top-card{background:white;border-radius:12px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.05);margin-bottom:20px;}
+.top-card h1{margin:0 0 10px 0;}
+.top-card p{margin:0;color:#666;}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px;}
+.btn{padding:10px 14px;background:#0072CE;color:white;border:none;border-radius:8px;cursor:pointer;text-decoration:none;font-weight:500;display:inline-block;}
+.btn:hover{background:#005bb5;}
+.btn-secondary{background:#666;}
+.btn-secondary:hover{background:#4d4d4d;}
+.table-card{background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.05);}
+.table{width:100%;border-collapse:collapse;}
+.table th,.table td{padding:14px;text-align:left;border-bottom:1px solid #eee;}
+.table th{background:#0072CE;color:white;}
+.table tr:hover{background:#f9fbff;}
+.status-badge{display:inline-block;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;}
+.available{background:#eafaf1;color:#1e8e3e;}
+.on-loan{background:#fff4e5;color:#b26a00;}
+.returned{background:#e8f0fe;color:#0072CE;}
+.empty{color:#666;text-align:center;padding:20px;}
+</style>
 </head>
 <body>
-    <h1>NFC Item Status</h1>
 
-    {% for item in nfc_items %}
-        <p>
-            Item: {{ item.item_name }} |
-            UID: {{ item.uid }} |
-            Status: {{ item.status }}
-        </p>
-    {% endfor %}
+<div class="nav">
+  <b>📦 Leihothek</b>
+  <div>
+    <a href="/admin">Admin</a>
+    <a href="/nfc_items">Statuses</a>
+    <a href="/logout">Logout</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="top-card">
+    <h1>NFC Item Statuses</h1>
+    <p>View the live status of NFC-linked items in the Leihothek system.</p>
+
+    <div class="actions">
+      <a href="/admin" class="btn">Back to Admin Dashboard</a>
+      <a href="/logout" class="btn btn-secondary">Logout</a>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <table class="table">
+      <tr>
+        <th>Item</th>
+        <th>UID</th>
+        <th>Status</th>
+        <th>Reserved by</th>
+        <th>Last Returned</th>
+      </tr>
+
+      {% for item in nfc_items %}
+      <tr>
+        <td>{{ item.item_name }}</td>
+        <td>{{ item.uid }}</td>
+        <td>
+          {% if item.status == "available" %}
+            <span class="status-badge available">available</span>
+          {% elif item.status == "on loan" %}
+            <span class="status-badge on-loan">on loan</span>
+          {% elif item.status == "returned" %}
+            <span class="status-badge returned">returned</span>
+          {% else %}
+            <span class="status-badge">{{ item.status }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if item.reserved_by %}
+            {{ item.reserved_by }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>
+          {% if item.last_returned %}
+            {{ item.last_returned }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" class="empty">No NFC items found.</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+
 </body>
 </html>

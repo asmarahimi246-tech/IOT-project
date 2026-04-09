@@ -8,6 +8,23 @@ app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
 # ------------------------------
+# USERS
+# ------------------------------
+users = {
+    "user@example.com": {"name": "User 1", "password": "Welkom1234"},
+    "admin@example.com": {"name": "Admin", "password": "adminpass", "is_admin": True}
+}
+
+# ------------------------------
+# ITEMS
+# ------------------------------
+items = [
+    {"id": 1, "name": "Drill", "description": "Powerful drill", "price_per_day": 10, "image": "images/drill.jpg"},
+]
+
+lockers = [1, 2, 3, 4, 5]
+
+# ------------------------------
 # DATABASE
 # ------------------------------
 def get_db():
@@ -28,40 +45,39 @@ def init_db():
         start TEXT,
         end TEXT,
         locker INTEGER,
-        rfid TEXT
+        rfid TEXT,
+        status TEXT DEFAULT 'active'
     )
     """)
+
+    try:
+        cur.execute("ALTER TABLE reservations ADD COLUMN status TEXT DEFAULT 'active'")
+    except sqlite3.OperationalError:
+        pass
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS items_nfc (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         item_id INTEGER,
         uid TEXT UNIQUE,
-        status TEXT DEFAULT 'available'
+        status TEXT DEFAULT 'available',
+        last_returned TEXT
     )
     """)
 
-    # Voeg testdata toe als tabel nog leeg is
+    try:
+        cur.execute("ALTER TABLE items_nfc ADD COLUMN last_returned TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     cur.execute("SELECT COUNT(*) AS count FROM items_nfc")
     count = cur.fetchone()["count"]
 
     if count == 0:
-        cur.execute(
-            "INSERT INTO items_nfc (item_id, uid, status) VALUES (?, ?, ?)",
-            (1, "04A3BC129F", "available")
-        )
-        cur.execute(
-            "INSERT INTO items_nfc (item_id, uid, status) VALUES (?, ?, ?)",
-            (2, "123456ABCD", "available")
-        )
-        cur.execute(
-            "INSERT INTO items_nfc (item_id, uid, status) VALUES (?, ?, ?)",
-            (3, "A1B2C3D4E5", "available")
-        )
-        cur.execute(
-            "INSERT INTO items_nfc (item_id, uid, status) VALUES (?, ?, ?)",
-            (4, "FFEEDD1122", "available")
-        )
+        cur.execute("""
+            INSERT INTO items_nfc (item_id, uid, status, last_returned)
+            VALUES (?, ?, ?, ?)
+        """, (1, "65:BD:66:75:CB", "available", None))
 
     conn.commit()
     conn.close()
@@ -70,33 +86,41 @@ def init_db():
 init_db()
 
 # ------------------------------
-# USERS
-# ------------------------------
-users = {
-    "user1@example.com": {"password": "1234"},
-    "admin@example.com": {"password": "adminpass", "is_admin": True}
-}
-
-# ------------------------------
-# ITEMS
-# ------------------------------
-items = [
-    {"id": 1, "name": "Drill", "description": "Powerful drill", "price_per_day": 10, "image": "images/drill.jpg"},
-    {"id": 2, "name": "Ladder", "description": "Reach high places", "price_per_day": 5, "image": "images/ladder.jpg"},
-    {"id": 3, "name": "Pressure Washer", "description": "Clean everything", "price_per_day": 15, "image": "images/washer.jpg"},
-    {"id": 4, "name": "Lawn Mower", "description": "Cut grass easily", "price_per_day": 12, "image": "images/mower.jpg"}
-]
-
-lockers = [1, 2, 3, 4, 5]
-
-# ------------------------------
 # HELPERS
 # ------------------------------
+def generate_rfid():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+
+def get_item_name(item_id):
+    item = next((i for i in items if i["id"] == item_id), None)
+    return item["name"] if item else "Unknown item"
+
+
+def get_user_display_name(email):
+    if not email:
+        return None
+    user = users.get(email)
+    if user and user.get("name"):
+        return user["name"]
+    return email
+
+
+def is_admin_logged_in():
+    if "user" not in session:
+        return False
+    current_user = users.get(session["user"])
+    return bool(current_user and current_user.get("is_admin"))
+
+
 def is_available(item_id, start, end):
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT * FROM reservations WHERE item_id = ?", (item_id,))
+    cur.execute("""
+        SELECT * FROM reservations
+        WHERE item_id = ? AND status = 'active'
+    """, (item_id,))
     rows = cur.fetchall()
 
     for r in rows:
@@ -109,15 +133,6 @@ def is_available(item_id, start, end):
 
     conn.close()
     return True
-
-
-def generate_rfid():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-
-
-def get_item_name(item_id):
-    item = next((i for i in items if i["id"] == item_id), None)
-    return item["name"] if item else "Unknown item"
 
 # ------------------------------
 # AUTH
@@ -132,6 +147,8 @@ def login():
 
         if user and user["password"] == password:
             session["user"] = email
+            if user.get("is_admin"):
+                return redirect(url_for("admin"))
             return redirect(url_for("index"))
 
         return render_template("login.html", error="Invalid login")
@@ -162,11 +179,51 @@ def dashboard():
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT * FROM reservations WHERE user = ?", (session["user"],))
+    cur.execute("""
+        SELECT * FROM reservations
+        WHERE user = ? AND status != 'deleted'
+        ORDER BY id DESC
+    """, (session["user"],))
+    rows = cur.fetchall()
+    conn.close()
+
+    reservations = []
+    for r in rows:
+        reservations.append({
+            "id": r["id"],
+            "item_id": r["item_id"],
+            "item_name": get_item_name(r["item_id"]),
+            "start": r["start"],
+            "end": r["end"],
+            "locker": r["locker"],
+            "rfid": r["rfid"],
+            "status": r["status"]
+        })
+
+    return render_template("dashboard.html", reservations=reservations)
+
+
+@app.route("/admin")
+def admin():
+    if not is_admin_logged_in():
+        return redirect(url_for("index") if "user" in session else url_for("login"))
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT * FROM reservations
+        WHERE status != 'deleted'
+        ORDER BY id DESC
+    """)
     reservations = cur.fetchall()
     conn.close()
 
-    return render_template("dashboard.html", reservations=reservations)
+    return render_template(
+        "admin.html",
+        reservations=reservations,
+        users=users,
+        items=items
+    )
 
 
 @app.route("/about")
@@ -185,7 +242,6 @@ def item_detail(item_id):
         return redirect(url_for("login"))
 
     item = next((i for i in items if i["id"] == item_id), None)
-
     if not item:
         return "Item not found", 404
 
@@ -194,25 +250,41 @@ def item_detail(item_id):
 
 @app.route("/nfc_items")
 def nfc_items():
-    if "user" not in session:
-        return redirect(url_for("login"))
+    if not is_admin_logged_in():
+        return redirect(url_for("index") if "user" in session else url_for("login"))
 
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT * FROM items_nfc")
     rows = cur.fetchall()
-    conn.close()
 
     nfc_items_data = []
     for row in rows:
+        reserved_by = None
+
+        if row["status"] == "on loan":
+            cur.execute("""
+                SELECT user
+                FROM reservations
+                WHERE item_id = ? AND status = 'active'
+                ORDER BY id DESC
+                LIMIT 1
+            """, (row["item_id"],))
+            reservation = cur.fetchone()
+            if reservation:
+                reserved_by = get_user_display_name(reservation["user"])
+
         nfc_items_data.append({
             "id": row["id"],
             "item_id": row["item_id"],
             "item_name": get_item_name(row["item_id"]),
             "uid": row["uid"],
-            "status": row["status"]
+            "status": row["status"],
+            "reserved_by": reserved_by,
+            "last_returned": row["last_returned"]
         })
 
+    conn.close()
     return render_template("nfc_items.html", nfc_items=nfc_items_data)
 
 # ------------------------------
@@ -233,7 +305,6 @@ def check():
         return jsonify({"error": "Invalid datetime format"}), 400
 
     result = []
-
     for item in items:
         result.append({
             "id": item["id"],
@@ -249,7 +320,6 @@ def reserve():
         return jsonify({"error": "Not logged in"}), 401
 
     data = request.get_json()
-
     if not data:
         return jsonify({"error": "Missing JSON body"}), 400
 
@@ -261,10 +331,18 @@ def reserve():
         return jsonify({"error": "item_id, start and end are required"}), 400
 
     try:
+        item_id = int(item_id)
         start_dt = datetime.fromisoformat(start)
         end_dt = datetime.fromisoformat(end)
     except ValueError:
-        return jsonify({"error": "Invalid datetime format"}), 400
+        return jsonify({"error": "Invalid item_id or datetime format"}), 400
+
+    if end_dt <= start_dt:
+        return jsonify({"error": "End date must be after start date"}), 400
+
+    item = next((i for i in items if i["id"] == item_id), None)
+    if not item:
+        return jsonify({"error": "Item not found"}), 404
 
     if not is_available(item_id, start_dt, end_dt):
         return jsonify({"error": "Item not available"}), 400
@@ -276,17 +354,38 @@ def reserve():
     cur = conn.cursor()
 
     cur.execute("""
-        INSERT INTO reservations (user, item_id, start, end, locker, rfid)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (session["user"], item_id, start, end, locker, rfid))
+        INSERT INTO reservations (user, item_id, start, end, locker, rfid, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (
+        session["user"],
+        item_id,
+        start,
+        end,
+        locker,
+        rfid,
+        "active"
+    ))
+
+    reservation_id = cur.lastrowid
+
+    cur.execute("""
+        UPDATE items_nfc
+        SET status = ?, last_returned = ?
+        WHERE item_id = ?
+    """, ("on loan", "currently on loan", item_id))
 
     conn.commit()
     conn.close()
 
     return jsonify({
         "message": "Reserved successfully",
+        "reservation_id": reservation_id,
+        "item_id": item_id,
+        "item_name": item["name"],
         "locker": locker,
-        "rfid": rfid
+        "rfid": rfid,
+        "status": "active",
+        "nfc_status": "on loan"
     })
 
 
@@ -311,15 +410,48 @@ def scan_nfc():
 
     current_status = item["status"]
 
-    if current_status in ["available", "returned"]:
-        new_status = "on loan"
-    else:
-        new_status = "returned"
+    if current_status != "on loan":
+        conn.close()
+        return jsonify({
+            "error": "Item is not currently on loan, NFC return denied",
+            "uid": uid,
+            "item_id": item["item_id"],
+            "item_name": get_item_name(item["item_id"]),
+            "current_status": current_status
+        }), 400
 
-    cur.execute(
-        "UPDATE items_nfc SET status = ? WHERE uid = ?",
-        (new_status, uid)
-    )
+    new_status = "available"
+    new_last_returned = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    reservation_status = None
+
+    cur.execute("""
+        SELECT * FROM reservations
+        WHERE item_id = ? AND status = 'active'
+        ORDER BY id DESC
+        LIMIT 1
+    """, (item["item_id"],))
+    reservation = cur.fetchone()
+
+    if reservation:
+        now = datetime.now()
+        end_dt = datetime.fromisoformat(reservation["end"])
+
+        if now < end_dt:
+            reservation_status = "returned early"
+        else:
+            reservation_status = "returned on time"
+
+        cur.execute("""
+            UPDATE reservations
+            SET status = ?
+            WHERE id = ?
+        """, (reservation_status, reservation["id"]))
+
+    cur.execute("""
+        UPDATE items_nfc
+        SET status = ?, last_returned = ?
+        WHERE uid = ?
+    """, (new_status, new_last_returned, uid))
 
     conn.commit()
 
@@ -328,13 +460,42 @@ def scan_nfc():
     conn.close()
 
     return jsonify({
-        "message": "Status updated",
+        "message": "Item returned successfully",
         "uid": uid,
         "item_id": item["item_id"],
         "item_name": item_name,
         "old_status": current_status,
-        "new_status": new_status
+        "new_status": new_status,
+        "last_returned": new_last_returned,
+        "reservation_status": reservation_status
     })
+
+
+@app.route("/delete_reservation/<int:reservation_id>", methods=["POST"])
+def delete_reservation(reservation_id):
+    if not is_admin_logged_in():
+        return redirect(url_for("index") if "user" in session else url_for("login"))
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM reservations WHERE id = ?", (reservation_id,))
+    reservation = cur.fetchone()
+
+    if not reservation:
+        conn.close()
+        return redirect(url_for("admin"))
+
+    if reservation["status"] in ["returned early", "returned on time"]:
+        cur.execute("""
+            UPDATE reservations
+            SET status = 'deleted'
+            WHERE id = ?
+        """, (reservation_id,))
+        conn.commit()
+
+    conn.close()
+    return redirect(url_for("admin"))
 
 # ------------------------------
 # RUN

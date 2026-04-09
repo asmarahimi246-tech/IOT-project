@@ -10,41 +10,129 @@ Pinout Reference guide
 
 from mfrc522 import MFRC522
 from machine import Pin
+import network
+import urequests
 import time
 
 reader = MFRC522(sck=2, mosi=3, miso=4, rst=0, cs=5)
-
 led = Pin(15, Pin.OUT)
 
-# add uid here replace with database later #
+# ------------------------------
+# WIFI
+# ------------------------------
+WIFI_SSID = "JOUW_WIFI_NAAM"
+WIFI_PASSWORD = "JOUW_WIFI_WACHTWOORD"
+
+# Gebruik het lokale IP-adres van je laptop
+SERVER_URL = "http://192.168.1.100:5000/scan_nfc"
+
+# Toegestane UID's
 ALLOWED_UIDS = [
-    "65:BD:66:75:CB",  # replace or add more UIDs as needed
+    "65:BD:66:75:CB",
 ]
+
+# Kleine cooldown tegen dubbel scannen
+SCAN_COOLDOWN = 3
+last_scan_uid = None
+last_scan_time = 0
 
 
 def uid_to_str(uid):
     return ":".join(f"{b:02X}" for b in uid)
 
 
+def connect_wifi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+
+    if not wlan.isconnected():
+        print("Connecting to WiFi...")
+        wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+
+        timeout = 15
+        while timeout > 0 and not wlan.isconnected():
+            time.sleep(1)
+            timeout -= 1
+
+    if wlan.isconnected():
+        print("WiFi connected")
+        print("Pico IP:", wlan.ifconfig()[0])
+        return True
+
+    print("WiFi connection failed")
+    return False
+
+
+def send_uid_to_server(uid_str):
+    try:
+        payload = {"uid": uid_str}
+        response = urequests.post(SERVER_URL, json=payload)
+
+        status_code = response.status_code
+        response_text = response.text
+        print("Server response:", response_text)
+
+        response.close()
+
+        if status_code == 200:
+            return True
+        else:
+            print("Server rejected scan")
+            return False
+
+    except Exception as e:
+        print("Error sending to server:", e)
+        return False
+
+
+def scan_allowed(uid_str):
+    global last_scan_uid, last_scan_time
+
+    now = time.time()
+
+    if uid_str == last_scan_uid and (now - last_scan_time) < SCAN_COOLDOWN:
+        print("Same tag scanned too quickly, ignoring...")
+        return False
+
+    last_scan_uid = uid_str
+    last_scan_time = now
+    return True
+
+
 def read_uid():
     """Read UID only — scans once then returns to menu."""
     print("Waiting for card (UID only)...")
+
     while True:
         reader.init()
         status, _ = reader.request(reader.REQIDL)
+
         if status == reader.OK:
             status, uid = reader.anticoll()
+
             if status == reader.OK:
                 uid_str = uid_to_str(uid)
-                print(f"  UID: {uid_str}")
-                if uid_str in ALLOWED_UIDS:
-                    print("  Access granted!")
+                print("UID:", uid_str)
+
+                if uid_str not in ALLOWED_UIDS:
+                    print("UID not in allowed list")
+                    return
+
+                if not scan_allowed(uid_str):
+                    return
+
+                print("Access granted!")
+                success = send_uid_to_server(uid_str)
+
+                if success:
+                    print("Return processed successfully")
                     led.on()
-                    time.sleep(3)
+                    time.sleep(2)
                     led.off()
                 else:
-                    print("  UID not in allowed list")
-                return  # back to menu
+                    print("Could not update Flask server or item was not on loan")
+
+                return
 
 
 def read_card(key=None):
@@ -53,35 +141,51 @@ def read_card(key=None):
         key = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
 
     print("Waiting for card...")
+
     while True:
         reader.init()
         status, _ = reader.request(reader.REQIDL)
+
         if status == reader.OK:
             status, uid = reader.anticoll()
+
             if status == reader.OK:
-                print(f"\n  Card UID: {uid_to_str(uid)}")
-                if uid_to_str(uid) in ALLOWED_UIDS:
-                    print("  Access granted!")
+                uid_str = uid_to_str(uid)
+                print("\nCard UID:", uid_str)
+
+                if uid_str not in ALLOWED_UIDS:
+                    print("UID not in allowed list")
+                    led.off()
+                    return
+
+                if not scan_allowed(uid_str):
+                    return
+
+                print("Access granted!")
+                success = send_uid_to_server(uid_str)
+
+                if success:
                     led.on()
                 else:
-                    print("  UID not in allowed list")
+                    print("Could not update Flask server or item was not on loan")
                     led.off()
+
                 reader.select_tag(uid)
 
                 if reader.auth(reader.AUTHENT1A, 8, key, uid) == reader.OK:
                     data = reader.read(8)
                     if data:
                         text = bytes(data).decode("utf-8").rstrip("\x00")
-                        print(f"  Data: {text}")
+                        print("Data:", text)
                     else:
-                        print("  Could not read block 8")
+                        print("Could not read block 8")
                 else:
-                    print("  Auth failed — wrong key?")
+                    print("Auth failed — wrong key?")
 
                 reader.stop_crypto1()
                 time.sleep(1)
                 led.off()
-                return  # back to menu
+                return
 
 
 def write_card(text, key=None):
@@ -92,27 +196,30 @@ def write_card(text, key=None):
     raw = text.encode("utf-8")[:16]
     data = list(raw) + [0x00] * (16 - len(raw))
 
-    print(f"Hold card to write '{text}'... press Ctrl+C to cancel")
+    print("Hold card to write '{}'... press Ctrl+C to cancel".format(text))
+
     while True:
         reader.init()
         status, _ = reader.request(reader.REQIDL)
+
         if status == reader.OK:
             status, uid = reader.anticoll()
+
             if status == reader.OK:
-                print(f"  Card UID: {uid_to_str(uid)}")
+                print("Card UID:", uid_to_str(uid))
                 reader.select_tag(uid)
 
                 if reader.auth(reader.AUTHENT1A, 8, key, uid) == reader.OK:
                     result = reader.write(8, data)
                     if result == reader.OK:
-                        print(f"  Written: {text}")
+                        print("Written:", text)
                     else:
-                        print("  Write failed")
+                        print("Write failed")
                 else:
-                    print("  Auth failed — wrong key?")
+                    print("Auth failed — wrong key?")
 
                 reader.stop_crypto1()
-                return  # write once then exit
+                return
 
 
 def menu():
@@ -139,5 +246,8 @@ def menu():
         print("Invalid choice")
 
 
-while True:
-    menu()
+if connect_wifi():
+    while True:
+        menu()
+else:
+    print("No WiFi connection. Flask update will not work.")
