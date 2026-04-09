@@ -19,7 +19,7 @@ users = {
 # ITEMS
 # ------------------------------
 items = [
-    {"id": 1, "name": "Drill", "description": "Powerful drill", "price_per_day": 10, "image": "images/drill.jpg"},
+    {"id": 1, "name": "Drill", "description": "Powerful drill", "price_per_day": 10, "image": "images/Drill.png"},
 ]
 
 lockers = [1, 2, 3, 4, 5]

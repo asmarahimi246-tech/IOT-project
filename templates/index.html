@@ -13,7 +13,7 @@ body{font-family:'Inter';margin:0;background:#f4f6f9;}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:20px;}
 .card{background:white;border-radius:12px;overflow:hidden;cursor:pointer;transition:0.2s;box-shadow:0 4px 12px rgba(0,0,0,0.05);}
 .card:hover{transform:translateY(-5px);}
-.card img{width:100%;height:160px;object-fit:cover;}
+.card img{width:100%;height:160px;object-fit:cover;display:block;}
 .card-content{padding:15px;}
 .card-content h3{margin:0 0 5px 0;}
 .card-content p{font-size:14px;color:#666;margin:5px 0;}
@@ -52,7 +52,7 @@ body{font-family:'Inter';margin:0;background:#f4f6f9;}
   <div class="grid">
     {% for item in items %}
     <div class="card" onclick="location.href='/item/{{item.id}}'">
-      <img src="{{ url_for('static', filename=item.image) }}">
+      <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.name }}">
       <div class="card-content">
         <h3>{{item.name}}</h3>
         <p>{{item.description}}</p>
