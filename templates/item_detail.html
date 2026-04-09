@@ -2,49 +2,63 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>{{ item.name }}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+<title>{{item.name}} - Leihothek</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet">
 <style>
-body{font-family:'Inter',sans-serif;background:#f5f7fb;margin:0;}
-header{background:#0072CE;color:white;padding:16px 32px;font-size:22px;}
-.container{max-width:800px;margin:auto;padding:30px;}
-.item-img{width:100%;border-radius:12px;object-fit:cover;}
-input{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:1px solid #ddd;}
-.btn-reserve{display:block;background:#00A676;color:white;text-align:center;padding:12px;border-radius:8px;font-weight:600;margin-top:20px;cursor:pointer;}
-.btn-reserve:hover{background:#008a5b;}
+body{font-family:'Inter';margin:0;background:#f4f6f9;}
+.nav{background:white;padding:15px;display:flex;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.05);}
+.nav a{margin-left:15px;text-decoration:none;color:#333;font-weight:500;}
+.container{max-width:700px;margin:auto;padding:20px;}
+img{width:100%;border-radius:12px;object-fit:cover;margin-bottom:15px;}
+button{padding:10px;background:#0072CE;color:white;border:none;border-radius:8px;cursor:pointer;}
+button:hover{background:#005bb5;}
 </style>
 </head>
 <body>
-<header>📦 {{ item.name }}</header>
+
+<div class="nav">
+  <b>📦 Leihothek</b>
+  <div>
+    <a href="/">Home</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/about">About</a>
+    <a href="/contact">Contact</a>
+    <a href="/logout">Logout</a>
+  </div>
+</div>
+
 <div class="container">
-<img src="{{ item.image }}" class="item-img">
-<h2>{{ item.name }}</h2>
-<p>{{ item.description }}</p>
-<p><strong>Price per day:</strong> €{{ item.price_per_day }}</p>
+<h1>{{item.name}}</h1>
+<img src="{{ url_for('static', filename=item.image) }}">
+<p>{{item.description}}</p>
+<p><b>€{{item.price_per_day}} / day</b></p>
 
-<label>Start Date:</label>
+<h3>Reserve</h3>
+<label>Start date:</label>
 <input type="date" id="start">
-<label>End Date:</label>
+<label>End date:</label>
 <input type="date" id="end">
+<br><br>
+<button onclick="reserve()">Reserve</button>
 
-<div class="btn-reserve" onclick="reserve()">Reserve Now</div>
+<p id="message"></p>
+</div>
 
 <script>
 async function reserve(){
     const start = document.getElementById("start").value;
     const end = document.getElementById("end").value;
-    if(!start||!end){ alert("Please select both dates"); return; }
+    if(!start || !end){ alert("Select both dates"); return; }
+
     const res = await fetch("/reserve",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ item_id:{{item.id}}, start:start, end:end })
+        body:JSON.stringify({item_id:{{item.id}}, start, end})
     });
     const data = await res.json();
-    if(data.error){ alert(data.error); return; }
-    alert(`Success!\nLocker: ${data.locker}\nRFID: ${data.rfid}`);
-    window.location="/dashboard";
+    document.getElementById("message").textContent = data.message || data.error;
 }
 </script>
-</div>
+
 </body>
 </html>
