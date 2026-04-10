@@ -11,7 +11,7 @@ app.secret_key = "supersecretkey"
 # USERS
 # ------------------------------
 users = {
-    "user@example.com": {"name": "User 1", "password": "Welkom1234"},
+    "user@example.com": {"name": "Test user", "password": "Welkom1234"},
     "admin@example.com": {"name": "Admin", "password": "adminpass", "is_admin": True}
 }
 
@@ -501,4 +501,4 @@ def delete_reservation(reservation_id):
 # RUN
 # ------------------------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
